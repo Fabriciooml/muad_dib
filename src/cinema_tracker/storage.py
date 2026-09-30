@@ -6,7 +6,7 @@ from datetime import UTC, datetime, timedelta
 from uuid import UUID, uuid4
 
 from postgres_component import PostgresComponent
-from sqlalchemy import delete, func, insert, select, tuple_, update
+from sqlalchemy import delete, func, insert, select, text, tuple_, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -74,6 +74,10 @@ def _event_payload(event_id: UUID, item: Session, observed_at: datetime) -> dict
 class PostgresStore:
     def __init__(self, database: PostgresComponent) -> None:
         self.database = database
+
+    async def ping(self) -> bool:
+        async with self.database.session() as session:
+            return (await session.execute(text("SELECT 1"))).scalar_one() == 1
 
     async def create_watch(self, watch: Watch) -> None:
         async with self.database.session() as session:
