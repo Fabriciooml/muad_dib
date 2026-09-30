@@ -2,8 +2,10 @@ from datetime import UTC, date, datetime, time
 from uuid import uuid4
 
 import pytest
+from prometheus_client import generate_latest
+from prometheus_component import Metrics
 
-from cinema_tracker.domain import MovieNotFound, ProviderTarget, Session, Watch
+from cinema_tracker.domain import MovieNotFound, ProviderSourceError, ProviderTarget, Session, Watch
 from cinema_tracker.poll import SessionPoller
 
 
@@ -112,3 +114,33 @@ async def test_dynamic_watch_keeps_missing_provider_pending_while_other_succeeds
 
     statuses = {target.provider: target.resolution_status for target in store.writes[0].targets}
     assert statuses == {"cineart": "resolved", "future": "pending_not_found"}
+
+
+@pytest.mark.asyncio
+async def test_source_failure_counts_poll_failure_without_advancing_last_success():
+    class FailingProvider(FakeProvider):
+        async def fetch_sessions(self, movie_id):
+            raise ProviderSourceError("Cineart unavailable")
+
+    now = datetime.now(UTC)
+    watch = Watch(
+        id=uuid4(),
+        movie_title="Duna",
+        providers=("cineart",),
+        targets=(ProviderTarget("cineart", "23469", "resolved"),),
+        city=None,
+        cinema=None,
+        room=None,
+        enabled=True,
+        poll_interval_minutes=15,
+        next_poll_at=now,
+        revision=1,
+    )
+    metrics = Metrics(namespace="cinema")
+    store = FakeStore([watch])
+    await SessionPoller(store, {"cineart": FailingProvider()}, metrics).poll_once(now)
+
+    exposed = generate_latest(metrics.registry).decode()
+    assert "cinema_poll_failures_total 1.0" in exposed
+    assert "cinema_poll_last_success_timestamp 0.0" in exposed
+    assert store.writes[0].targets[0].last_fetch_error == "source_error"

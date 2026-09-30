@@ -1,6 +1,8 @@
 from uuid import uuid4
 
 import pytest
+from prometheus_client import generate_latest
+from prometheus_component import Metrics
 
 from cinema_tracker.publish import OutboxPublisher
 from cinema_tracker.storage import OutboxEvent
@@ -20,6 +22,9 @@ class FakeStore:
 
     async def record_publish_failure(self, event_id, error):
         self.failures.append((event_id, error))
+
+    async def pending_count(self):
+        return 0 if self.published else 1
 
 
 class FakeProducer:
@@ -65,3 +70,18 @@ async def test_failed_send_leaves_event_pending_for_retry():
     producer.fail = False
     assert await publisher.publish_once() == 1
     assert store.published == [event.id]
+
+
+@pytest.mark.asyncio
+async def test_pending_outbox_gauge_tracks_failed_then_published_event():
+    event = OutboxEvent(uuid4(), "cinema.sessions.discovered.v1", b"stable", {"event_id": "1"})
+    store = FakeStore(event)
+    producer = FakeProducer(fail=True)
+    metrics = Metrics(namespace="cinema")
+    publisher = OutboxPublisher(store, producer, metrics)
+
+    await publisher.publish_once()
+    assert "cinema_outbox_pending 1.0" in generate_latest(metrics.registry).decode()
+    producer.fail = False
+    await publisher.publish_once()
+    assert "cinema_outbox_pending 0.0" in generate_latest(metrics.registry).decode()

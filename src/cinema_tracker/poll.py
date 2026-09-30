@@ -85,7 +85,20 @@ class SessionPoller(Component):
             self._polls.inc(len(due))
         if self._discovered is not None:
             self._discovered.inc(inserted)
-        if self._last_success is not None:
+        failed_watches = sum(
+            any(
+                result.status in {"source_error", "pending_source_error"}
+                for result in inspection.providers
+            )
+            for inspection in inspections
+        )
+        if self._failures is not None:
+            self._failures.inc(failed_watches)
+        if self._last_success is not None and any(
+            result.status == "success"
+            for inspection in inspections
+            for result in inspection.providers
+        ):
             self._last_success.set(completed_at.timestamp())
         return inserted
 

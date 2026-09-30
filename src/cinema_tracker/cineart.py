@@ -127,6 +127,8 @@ def parse_cineart_sessions(page: str, movie_id: str) -> list[Session]:
                         )
     except (TypeError, ValueError, KeyError, AttributeError) as exc:
         raise CineartParseError("Malformed Cineart session data") from exc
+    if not sessions:
+        raise CineartParseError("Cineart session data empty without unavailable notice")
     return sorted(sessions, key=lambda item: (item.date, item.time, item.cinema, item.room))
 
 

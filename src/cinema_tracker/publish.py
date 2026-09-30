@@ -31,6 +31,9 @@ class OutboxPublisher(Component):
         self._failed = (
             metrics.counter("publish_failures_total", "Failed publishes") if metrics else None
         )
+        self._pending = (
+            metrics.gauge("outbox_pending", "Pending outbox events") if metrics else None
+        )
 
     async def publish_once(self, limit: int = 100) -> int:
         sent = 0
@@ -46,6 +49,8 @@ class OutboxPublisher(Component):
             if self._published is not None:
                 self._published.inc()
             sent += 1
+        if self._pending is not None:
+            self._pending.set(await self.store.pending_count())
         return sent
 
     async def start(self) -> None:

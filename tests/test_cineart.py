@@ -50,6 +50,13 @@ def test_unavailable_page_is_empty_but_malformed_page_fails():
     assert parse_cineart_sessions("Sessões ainda não disponíveis para esse filme", "23469") == []
     with pytest.raises(CineartParseError):
         parse_cineart_sessions("<html><body>broken</body></html>", "23469")
+    with pytest.raises(CineartParseError):
+        parse_cineart_sessions('<filme-prog :cinemas="{}"></filme-prog>', "23469")
+    with pytest.raises(CineartParseError):
+        parse_cineart_sessions(
+            '<filme-prog :cinemas="{&quot;day&quot;: {&quot;DATA&quot;: &quot;2026-12-15&quot;, &quot;CINEMAS&quot;: {}}}"></filme-prog>',
+            "23469",
+        )
 
 
 @pytest.mark.asyncio
