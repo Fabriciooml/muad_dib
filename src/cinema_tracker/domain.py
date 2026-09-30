@@ -116,6 +116,20 @@ class MovieMatch:
     source_url: str
 
 
+class MovieNotFound(LookupError):
+    pass
+
+
+class AmbiguousMovie(LookupError):
+    def __init__(self, candidates: list[MovieMatch]) -> None:
+        super().__init__("Multiple movies match title")
+        self.candidates = candidates
+
+
+class ProviderSourceError(RuntimeError):
+    pass
+
+
 class Provider(Protocol):
     async def resolve_movie(self, title: str) -> MovieMatch: ...
 
