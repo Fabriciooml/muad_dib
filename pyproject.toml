@@ -1,0 +1,41 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[project]
+name = "cinema-tracker"
+version = "0.1.0"
+description = "Configurable cinema session tracker"
+requires-python = ">=3.11"
+dependencies = [
+  "python-components==0.4.0",
+  "fastapi-component==0.3.0",
+  "kafka-component @ git+https://github.com/Fabriciooml/kafka-component.git@e58704971fd67645d3b448d9738b13293de741f8",
+  "prometheus-component @ git+https://github.com/lucassant95/prometheus-component.git@c0f68d50eb6bada6994e7681e5cc14cd372193c6",
+  "postgres-component @ git+https://github.com/Fabriciooml/postgres-component.git@02918b4b084f0cd12eda086136897381944c895d",
+  "SQLAlchemy>=2.0,<3",
+  "alembic>=1.16,<2",
+  "httpx>=0.28,<1",
+  "uvicorn>=0.35,<1",
+]
+
+[dependency-groups]
+dev = [
+  "pytest>=8,<9",
+  "pytest-asyncio>=1,<2",
+  "ruff>=0.12,<1",
+  "testcontainers[postgres,kafka]>=4.15,<5",
+  "PyYAML>=6,<7",
+  "jsonschema>=4,<5",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
