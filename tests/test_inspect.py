@@ -2,7 +2,7 @@ from datetime import date, time
 
 import pytest
 
-from cinema_tracker.domain import MovieMatch, Session
+from cinema_tracker.domain import MovieMatch, MovieNotFound, Session
 from cinema_tracker.inspect import InspectionRequest, SessionInspector
 
 
@@ -14,7 +14,7 @@ class FakeProvider:
 
     async def resolve_movie(self, title: str) -> MovieMatch:
         if self.movie_id is None:
-            raise LookupError(title)
+            raise MovieNotFound(title)
         return MovieMatch(title, self.movie_id, f"https://example.com/{self.movie_id}")
 
     async def fetch_sessions(self, movie_id: str) -> list[Session]:
@@ -55,3 +55,29 @@ async def test_inspector_groups_fetches_and_reports_pending_provider_independent
     assert len(second.sessions) == 1
     assert cineart.fetch_count == 1
     assert future.fetch_count == 0
+
+
+@pytest.mark.asyncio
+async def test_unexpected_provider_error_is_not_reported_as_movie_not_found():
+    class BrokenProvider:
+        async def resolve_movie(self, title):
+            raise KeyError("broken source data")
+
+        async def fetch_sessions(self, movie_id):
+            return []
+
+    inspector = SessionInspector({"broken": BrokenProvider()})
+    with pytest.raises(KeyError, match="broken source data"):
+        await inspector.resolve_targets("Duna", None)
+
+
+@pytest.mark.asyncio
+async def test_inspector_collapses_duplicate_source_entries_by_session_identity():
+    class DuplicateProvider(FakeProvider):
+        async def fetch_sessions(self, movie_id):
+            one = (await super().fetch_sessions(movie_id))[0]
+            return [one, one]
+
+    inspector = SessionInspector({"cineart": DuplicateProvider("cineart", "23469")})
+    result = (await inspector.inspect_many([InspectionRequest("Duna", None)]))[0]
+    assert len(result.sessions) == 1

@@ -4,6 +4,7 @@ from dataclasses import dataclass
 
 from cinema_tracker.domain import (
     AmbiguousMovie,
+    MovieNotFound,
     Provider,
     ProviderSourceError,
     ProviderTarget,
@@ -62,7 +63,7 @@ class SessionInspector:
                 if strict_ambiguity:
                     raise
                 targets.append(ProviderTarget(name, None, "pending_ambiguous"))
-            except LookupError:
+            except MovieNotFound:
                 targets.append(ProviderTarget(name, None, "pending_not_found"))
             except ProviderSourceError:
                 targets.append(ProviderTarget(name, None, "pending_source_error"))
@@ -111,5 +112,6 @@ class SessionInspector:
                 )
                 matching.extend(item for item in live if session_filter.matches(item))
                 provider_results.append(ProviderResult(target.provider, "success", target.movie_id))
-            results.append(InspectionResult(tuple(provider_results), tuple(matching), targets))
+            unique = tuple({item.key: item for item in matching}.values())
+            results.append(InspectionResult(tuple(provider_results), unique, targets))
         return tuple(results)

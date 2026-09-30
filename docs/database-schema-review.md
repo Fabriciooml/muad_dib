@@ -1,6 +1,6 @@
 # Database schema review — 2026-09-30
 
-Status: design validated against V1 workflows; final session identity index waits for Cineart showtime ID inspection. No migration or database exists yet.
+Status: implemented in Alembic revision `001`; PostgreSQL integration tests cover watch revisions, session uniqueness, concurrent inserts, and outbox rollback.
 
 Wire output contract lives in [`schemas/output.v1.schema.json`](../schemas/output.v1.schema.json): session fields, preview GET response, and Kafka discovery event. PostgreSQL table schema below is separate from that JSON contract.
 
@@ -24,6 +24,6 @@ Wire output contract lives in [`schemas/output.v1.schema.json`](../schemas/outpu
 5. Publisher marks outbox row published only after Kafka acknowledgement. Retry may redeliver same event ID.
 6. Preview GETs may read sessions for newness comparison; they write no rows.
 
-## Identity gate before migration
+## Session identity decision
 
-Inspect saved Cineart payload for durable showtime ID, including behavior when purchase URL changes. If ID is stable, add nullable `source_session_id` and partial unique `(provider, source_session_id)` index for sessions with IDs; keep partial composite unique index for sessions without IDs. Keep one identity mode per provider to avoid duplicate discovery when an ID appears later. If no stable ID exists, use composite index above. Room casing/outer whitespace changes normalize to same `room_key`; genuine room rename can still look new under composite fallback.
+Observed Cineart showtime entries contain `HORARIO`, flags, and `URL_COMPRA`, with no durable showtime ID. V1 uses composite unique index above. Purchase URL remains mutable metadata. Room casing/outer whitespace changes normalize to same `room_key`; genuine room rename can still look new. A later provider with durable IDs needs its own migration and provider-scoped identity mode.

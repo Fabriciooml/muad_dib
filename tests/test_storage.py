@@ -1,3 +1,4 @@
+import asyncio
 import json
 import os
 from dataclasses import replace
@@ -9,7 +10,7 @@ import pytest
 from alembic.config import Config
 from jsonschema import Draft202012Validator
 from postgres_component import PostgresComponent
-from sqlalchemy import select
+from sqlalchemy import select, text
 from testcontainers.community.postgres import PostgresContainer
 
 from alembic import command
@@ -206,5 +207,81 @@ async def test_stale_poll_result_cannot_discover_or_reschedule(database_url):
         assert saved is not None
         assert saved.next_poll_at == now + timedelta(minutes=15)
         assert await store.existing_session_keys([session.key]) == {session.key}
+    finally:
+        await database.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_concurrent_insert_creates_one_session_and_event(database_url):
+    database = PostgresComponent(url=database_url)
+    await database.start()
+    try:
+        store = PostgresStore(database)
+        item = Session(
+            provider="cineart",
+            movie_id="concurrent-case",
+            city="Belo Horizonte",
+            cinema_id="25",
+            cinema="Cineart Boulevard",
+            room="Sala 06 IMAX",
+            date=date(2026, 12, 17),
+            time=time(20, 40),
+            timezone="America/Sao_Paulo",
+            format="IMAX",
+            language="Legendado",
+            purchase_url="https://example.com/concurrent",
+        )
+        before = await store.pending_count()
+        results = await asyncio.gather(
+            store.insert_discoveries([item], datetime.now(UTC)),
+            store.insert_discoveries([item], datetime.now(UTC)),
+        )
+        assert sorted(results) == [0, 1]
+        assert await store.pending_count() == before + 1
+    finally:
+        await database.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_outbox_failure_rolls_back_session_insert(database_url):
+    database = PostgresComponent(url=database_url)
+    await database.start()
+    try:
+        store = PostgresStore(database)
+        item = Session(
+            provider="cineart",
+            movie_id="rollback-case",
+            city="Belo Horizonte",
+            cinema_id="25",
+            cinema="Cineart Boulevard",
+            room="Sala 06 IMAX",
+            date=date(2026, 12, 18),
+            time=time(14, 0),
+            timezone="America/Sao_Paulo",
+            format="IMAX",
+            language="Legendado",
+            purchase_url="https://example.com/rollback",
+        )
+        async with database.session() as connection:
+            await connection.execute(
+                text(
+                    "CREATE FUNCTION reject_outbox() RETURNS trigger LANGUAGE plpgsql AS "
+                    "$$ BEGIN RAISE EXCEPTION 'reject test outbox'; END; $$"
+                )
+            )
+            await connection.execute(
+                text(
+                    "CREATE TRIGGER reject_outbox_insert BEFORE INSERT ON outbox "
+                    "FOR EACH ROW EXECUTE FUNCTION reject_outbox()"
+                )
+            )
+        try:
+            with pytest.raises(Exception, match="reject test outbox"):
+                await store.insert_discoveries([item], datetime.now(UTC))
+        finally:
+            async with database.session() as connection:
+                await connection.execute(text("DROP TRIGGER reject_outbox_insert ON outbox"))
+                await connection.execute(text("DROP FUNCTION reject_outbox()"))
+        assert await store.existing_session_keys([item.key]) == set()
     finally:
         await database.shutdown()

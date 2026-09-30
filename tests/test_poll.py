@@ -3,7 +3,7 @@ from uuid import uuid4
 
 import pytest
 
-from cinema_tracker.domain import ProviderTarget, Session, Watch
+from cinema_tracker.domain import MovieNotFound, ProviderTarget, Session, Watch
 from cinema_tracker.poll import SessionPoller
 
 
@@ -82,7 +82,7 @@ async def test_due_overlapping_watches_fetch_once_and_write_one_session():
 async def test_dynamic_watch_keeps_missing_provider_pending_while_other_succeeds():
     class PendingProvider:
         async def resolve_movie(self, title):
-            raise LookupError(title)
+            raise MovieNotFound(title)
 
         async def fetch_sessions(self, movie_id):
             raise AssertionError("pending movie cannot be fetched")
