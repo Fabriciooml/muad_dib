@@ -17,3 +17,9 @@ def test_portainer_stack_runs_migration_before_single_tracker():
     assert "DATABASE_URL" in services["migrate"]["environment"]
     assert "KAFKA_BOOTSTRAP_SERVERS" in services["tracker"]["environment"]
     assert "ADMIN_API_KEY" in services["tracker"]["environment"]
+    assert services["migrate"]["networks"] == ["postgres"]
+    assert services["tracker"]["networks"] == ["postgres"]
+    assert stack["networks"]["postgres"] == {
+        "external": True,
+        "name": "${POSTGRES_NETWORK:?set POSTGRES_NETWORK}",
+    }
