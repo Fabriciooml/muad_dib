@@ -5,8 +5,11 @@ build-backend = "hatchling.build"
 [tool.hatch.metadata]
 allow-direct-references = true
 
+[tool.hatch.build.targets.wheel]
+packages = ["src/cinema_tracker"]
+
 [project]
-name = "cinema-tracker"
+name = "muad_dib"
 version = "0.1.0"
 description = "Configurable cinema session tracker"
 requires-python = ">=3.11"

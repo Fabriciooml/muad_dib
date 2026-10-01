@@ -1,6 +1,10 @@
-# Cinema session tracker
+# Muad'Dib
 
-Monitors configured movie titles across cinema providers. V1 provider: Cineart. Each watch defaults to a 15-minute polling interval. Newly observed sessions go to PostgreSQL and Kafka topic `cinema.sessions.discovered.v1` through a transactional outbox.
+![Original illustration of a big-eared desert mouse watching the dunes at dawn](assets/muad-dib-desert-mouse.png)
+
+In *Dune*, [Muad'Dib](https://dunepedia.com/wiki/terim-muad-dib/) is the Fremen name for a small desert mouse that survives on Arrakis by adapting to scarce water and harsh sand. This project borrows its watchful spirit: it scans cinema listings, notices newly available sessions, and sends discoveries before a screening slips by.
+
+Muad'Dib is a configurable cinema session tracker. V1 provider: Cineart. Each watch defaults to a 15-minute polling interval. Newly observed sessions go to PostgreSQL and Kafka topic `cinema.sessions.discovered.v1` through a transactional outbox.
 
 ## Local development
 
@@ -49,8 +53,8 @@ In Portainer, add a Git Repository stack using this repository URL and Compose p
 Manual build and push remain possible:
 
 ```bash
-docker build -t registry.example.com/cinema-tracker:0.1.0 .
-docker push registry.example.com/cinema-tracker:0.1.0
+docker build -t registry.example.com/muad_dib:0.1.0 .
+docker push registry.example.com/muad_dib:0.1.0
 ```
 
 Kafka delivery is at least once. Consumers deduplicate with stable `event_id`. Output JSON Schema: [`schemas/output.v1.schema.json`](schemas/output.v1.schema.json). GET `/health/live`, GET `/health/ready`, and GET `/metrics` support operations.
